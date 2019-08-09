@@ -22,6 +22,9 @@
 #include "gmxapi/md/mdmodule.h"
 
 #include "ensemblepotential.h"
+#include "training_potential.h"
+#include "convergence_potential.h"
+#include "production_potential.h"
 
 // Make a convenient alias to save some typing...
 namespace py = pybind11;
@@ -30,6 +33,13 @@ namespace py = pybind11;
 //  type aliases.
 using plugin::EnsemblePotential;
 using plugin::makeEnsembleParams;
+using plugin::Training;
+using plugin::makeTrainingParams;
+using plugin::Convergence;
+using plugin::makeConvergenceParams;
+using plugin::Production;
+using plugin::makeProductionParams;
+
 using plugin::Matrix;
 using plugin::PyRestraint;
 using plugin::Restraint;
@@ -37,6 +47,9 @@ using plugin::RestraintBuilder;
 using plugin::RestraintModule;
 
 using EnsembleRestraintBuilder = RestraintBuilder<EnsemblePotential>;
+using TrainingRestraintBuilder = RestraintBuilder<Training>;
+using ConvergenceRestraintBuilder = RestraintBuilder<Convergence>;
+using ProductionRestraintBuilder = RestraintBuilder<Production>;
 
 /*!
  * \brief Factory function to create a new builder for use during Session
@@ -64,6 +77,45 @@ std::unique_ptr<EnsembleRestraintBuilder> createEnsembleBuilder(const py::object
     return builder;
 }
 
+std::unique_ptr<TrainingRestraintBuilder> createTrainingBuilder(const py::object &element)
+{
+    using std::make_unique;
+    using data_t = Training::input_param_type;
+    auto builder = make_unique<TrainingRestraintBuilder>(element);
+    (*builder)
+            .add_input("A", &data_t::A)
+            .add_input("tau", &data_t::tau)
+            .add_input("tolerance", &data_t::tolerance)
+            .add_input("target", &data_t::target)
+            .add_input("n_samples", &data_t::n_samples);
+    return builder;
+}
+
+std::unique_ptr<ConvergenceRestraintBuilder> createConvergenceBuilder(const py::object &element)
+{
+    using std::make_unique;
+    using data_t = Convergence::input_param_type;
+    auto builder = make_unique<ConvergenceRestraintBuilder>(element);
+    (*builder)
+            .add_input("alpha", &data_t::alpha)
+            .add_input("tolerance", &data_t::tolerance)
+            .add_input("target", &data_t::target)
+            .add_input("sample_period", &data_t::sample_period)
+            .add_input("logging_filename", &data_t::logging_filename);
+    return builder;
+}
+
+std::unique_ptr<ProductionRestraintBuilder> createProductionBuilder(const py::object &element)
+{
+    using std::make_unique;
+    using data_t = Production::input_param_type;
+    auto builder = make_unique<ProductionRestraintBuilder>(element);
+    (*builder)
+            .add_input("alpha", &data_t::alpha)
+            .add_input("sample_period", &data_t::sample_period)
+            .add_input("target", &data_t::target);
+    return builder;
+}
 ////////////////////////////////////////////////////////////////////////////////
 // New potentials modeled after EnsembleRestraint should define a Builder class
 // and define a factory function here, following the previous two examples. The
@@ -149,5 +201,93 @@ PYBIND11_MODULE(myplugin, m)
           [](const py::object element) { return createEnsembleBuilder(element); });
     //
     // End EnsembleRestraint
+    ///////////////////////////////////////////////////////////////////////////
+
+
+    //////////////////////////////////////////////////////////////////////////
+    // Begin TrainingRestraint
+    //
+    // Define Builder to be returned from training_restraint Python function
+    // defined further down.
+    pybind11::class_<TrainingRestraintBuilder> trainingBuilder(
+            m, "TrainingBuilder");
+    trainingBuilder.def("add_subscriber", &TrainingRestraintBuilder::addSubscriber);
+    trainingBuilder.def("build", &TrainingRestraintBuilder::build);
+
+    // Define a more concise name for the template instantiation...
+    using PyTraining = PyRestraint<RestraintModule<Restraint<Training>>>;
+
+    // Export a Python class for our parameters struct
+    py::class_<Restraint<Training>::input_param_type> trainingParams(
+            m, "TrainingRestraintParams");
+    m.def("make_training_params", &makeTrainingParams);
+
+    // API object to build.
+    py::class_<PyTraining, std::shared_ptr<PyTraining>> training(
+            m, "TrainingRestraint");
+    // EnsembleRestraint can only be created via builder for now.
+    training.def("bind", &PyTraining::bind, "Implement binding protocol");
+    m.def("training_restraint",
+          [](const py::object element) { return createTrainingBuilder(element); });
+    //
+    // End TrainingRestraint
+    ///////////////////////////////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////
+    // Begin ConvergenceRestraint
+    //
+    // Define Builder to be returned from convergence_restraint Python function
+    // defined further down.
+    pybind11::class_<ConvergenceRestraintBuilder> convergenceBuilder(
+            m, "ConvergenceBuilder");
+    convergenceBuilder.def("add_subscriber", &ConvergenceRestraintBuilder::addSubscriber);
+    convergenceBuilder.def("build", &ConvergenceRestraintBuilder::build);
+
+    // Define a more concise name for the template instantiation...
+    using PyConvergence = PyRestraint<RestraintModule<Restraint<Convergence>>>;
+
+    // Export a Python class for our parameters struct
+    py::class_<Restraint<Convergence>::input_param_type> convergenceParams(
+            m, "ConvergenceRestraintParams");
+    m.def("make_convergence_params", &makeConvergenceParams);
+
+    // API object to build.
+    py::class_<PyConvergence, std::shared_ptr<PyConvergence>> convergence(
+            m, "ConvergenceRestraint");
+    // EnsembleRestraint can only be created via builder for now.
+    convergence.def("bind", &PyConvergence::bind, "Implement binding protocol");
+    m.def("convergence_restraint",
+          [](const py::object element) { return createConvergenceBuilder(element); });
+    //
+    // End ConvergenceRestraint
+    ///////////////////////////////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////
+    // Begin ProductionRestraint
+    //
+    // Define Builder to be returned from production_restraint Python function
+    // defined further down.
+    pybind11::class_<ProductionRestraintBuilder> productionBuilder(
+            m, "ProductionBuilder");
+    productionBuilder.def("add_subscriber", &ProductionRestraintBuilder::addSubscriber);
+    productionBuilder.def("build", &ProductionRestraintBuilder::build);
+
+    // Define a more concise name for the template instantiation...
+    using PyProduction = PyRestraint<RestraintModule<Restraint<Production>>>;
+
+    // Export a Python class for our parameters struct
+    py::class_<Restraint<Production>::input_param_type> productionParams(
+            m, "ProductionRestraintParams");
+    m.def("make_production_params", &makeProductionParams);
+
+    // API object to build.
+    py::class_<PyProduction, std::shared_ptr<PyProduction>> production(
+            m, "ProductionRestraint");
+    // EnsembleRestraint can only be created via builder for now.
+    production.def("bind", &PyProduction::bind, "Implement binding protocol");
+    m.def("production_restraint",
+          [](const py::object element) { return createProductionBuilder(element); });
+    //
+    // End ProductionRestraint
     ///////////////////////////////////////////////////////////////////////////
 }

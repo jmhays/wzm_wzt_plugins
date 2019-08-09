@@ -84,7 +84,7 @@ gtest_add_tests(TARGET histogram-test
 target_include_directories(histogram-test PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 set_target_properties(histogram-test PROPERTIES SKIP_BUILD_RPATH FALSE)
-target_link_libraries(histogram-test ensemblepotential Gromacs::gmxapi
+target_link_libraries(histogram-test ensemble_potential Gromacs::gmxapi
                       GTest::Main)
 
 set_tests_properties(${EnsembleHistogramPotentialPlugin} PROPERTIES
@@ -99,7 +99,7 @@ gtest_add_tests(TARGET bounding-test
 target_include_directories(bounding-test PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 set_target_properties(bounding-test PROPERTIES SKIP_BUILD_RPATH FALSE)
-target_link_libraries(bounding-test ensemblepotential Gromacs::gmxapi
+target_link_libraries(bounding-test ensemble_potential Gromacs::gmxapi
                       GTest::Main)
 
 set_tests_properties(${EnsembleBoundingPotentialPlugin} PROPERTIES
